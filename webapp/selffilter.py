@@ -6,7 +6,7 @@ import re
 import time
 from pyquery import PyQuery
 from base64 import b64decode
-from crawlerpage import app
+from webapp import app
 
 self_env = app.jinja_env
 
