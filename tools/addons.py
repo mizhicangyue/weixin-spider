@@ -37,7 +37,7 @@ class WeiXinProxy:
                 key = re.search(r"key=([^&]+)&?", url_path).group(1)
                 uin = self.uin_md5(re.search(r"uin=([^&]+)&?", url_path).group(1))
                 hash_key = hashlib.md5(biz.encode("utf-8")).hexdigest()
-                print("出现了吗：", hash_key, biz, uin, key)
+                print("抓到了：", hash_key, biz, uin, key)
 
                 if not self.redis_server.exists(hash_key):
                     self.redis_server.set(hash_key, json.dumps({
