@@ -5,10 +5,10 @@
 import re
 import time
 from pyquery import PyQuery
-from crawlerpage.models import Account, Article, Comment, CommentReply
-from crawlerpage import db
+from webapp.models import Account, Article, Comment, CommentReply
+from webapp import db
 from api import *
-from functions import get_pass_key_and_uin
+from tools import get_pass_key_and_uin
 from settings import SLEEP_TIME, DOWNLOAD_DELAY
 from exceptions import KeyExpireError, NoneValueError, ArticleHasBeenDeleteError, IPError
 

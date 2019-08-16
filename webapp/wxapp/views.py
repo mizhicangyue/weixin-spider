@@ -2,7 +2,7 @@
 # !/usr/bin/python3
 # @Time   : 2019/8/15 17:50
 # @File   : views.py
-from webapp import app
+from . import wx_app
 from webapp.models import Account, Article, Comment
 from webapp import db
 
@@ -13,7 +13,7 @@ from flask import render_template, request, redirect, url_for, make_response
 from api import get_platform_info_from_url
 
 
-@app.route("/", methods=['GET'])
+@wx_app.route("/", methods=['GET'])
 def wx_index():
     page = int(request.args.to_dict().get("page", 1))
     page_data = Account.query.order_by(
@@ -22,7 +22,7 @@ def wx_index():
     return render_template("wx-index.html", page_data=page_data)
 
 
-@app.route("/add/", methods=["GET"])
+@wx_app.route("/add/", methods=["GET"])
 def wx_add():
     wx_uri = request.values.to_dict().get("wx_uri")
     wx_info = get_platform_info_from_url(wx_uri)
@@ -36,7 +36,7 @@ def wx_add():
     return redirect(url_for("app.wx_index"))
 
 
-@app.route("/account/", methods=["GET"])
+@wx_app.route("/account/", methods=["GET"])
 def wx_account():
     account_id = int(request.args.to_dict().get("id", 0))
     page = int(request.args.to_dict().get("page", 1))
@@ -51,7 +51,7 @@ def wx_account():
     return render_template("wx-account.html", account=account, articles=articles)
 
 
-@app.route("/article/", methods=["GET"])
+@wx_app.route("/article/", methods=["GET"])
 def wx_article():
     article_id = int(request.args.to_dict().get("id", 0))
     article = Article.query.get(article_id)
@@ -63,7 +63,7 @@ def wx_article():
     return render_template("wx-article.html", article=article, comments=comments)
 
 
-@app.route("/operate/", methods=["GET"])
+@wx_app.route("/operate/", methods=["GET"])
 def wx_operate():
     account_id = int(request.args.to_dict().get("id", 0))
     account_count = Account.query.filter_by(id=account_id).count()
@@ -78,7 +78,7 @@ def wx_operate():
     return redirect(url_for("app.wx_index"))
 
 
-@app.route("/wx_article/", methods=["GET"])
+@wx_app.route("/wx_article/", methods=["GET"])
 def wx_article_iframe():
     article_id = int(request.args.to_dict().get("id", 0))
     if article_id <= 0:
@@ -87,7 +87,7 @@ def wx_article_iframe():
     return article.article_html
 
 
-@app.route("/wx_images/", methods=["GET"])
+@wx_app.route("/wx_images/", methods=["GET"])
 def wx_images():
     url = request.args.to_dict().get("url", "")
     img = urlopen(url)

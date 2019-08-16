@@ -6,14 +6,13 @@ from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "mysql://root:123456@localhost:3306/weixin_crawler?charset=utf8mb4"
+app.config["SQLALCHEMY_DATABASE_URI"] = "mysql://root:123456@localhost:3306/weixin_spider?charset=utf8mb4"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
 db = SQLAlchemy(app)
 
 app.debug = True
-
-from webapp.views import *
-
+from webapp.wxapp import wx_app as wx_app_blueprint
+app.register_blueprint(wx_app_blueprint)
 
 @app.errorhandler(400)
 def page_400(error):
