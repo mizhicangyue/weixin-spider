@@ -29,11 +29,11 @@ def wx_add():
     print(wx_info)
     account_count = Account.query.filter_by(account_id_unique=wx_info['account_id_unique']).count()
     if account_count == 1:
-        return redirect(url_for("app.wx_index"))
+        return redirect(url_for("wx_app.wx_index"))
     account = Account(**wx_info)
     db.session.add(account)
     db.session.commit()
-    return redirect(url_for("app.wx_index"))
+    return redirect(url_for("wx_app.wx_index"))
 
 
 @wx_app.route("/account/", methods=["GET"])
@@ -41,7 +41,7 @@ def wx_account():
     account_id = int(request.args.to_dict().get("id", 0))
     page = int(request.args.to_dict().get("page", 1))
     if account_id <= 0:
-        return redirect(url_for("app.wx_index"))
+        return redirect(url_for("wx_app.wx_index"))
     account = Account.query.get(account_id)
     articles = Article.query.filter_by(
         account_id=account_id
@@ -59,7 +59,7 @@ def wx_article():
         article_id=article_id
     ).all()
     if article_id <= 0:
-        return redirect(url_for("app.wx_index"))
+        return redirect(url_for("wx_app.wx_index"))
     return render_template("wx-article.html", article=article, comments=comments)
 
 
@@ -68,14 +68,14 @@ def wx_operate():
     account_id = int(request.args.to_dict().get("id", 0))
     account_count = Account.query.filter_by(id=account_id).count()
     if account_count != 1:
-        return redirect(url_for("app.wx_index"))
+        return redirect(url_for("wx_app.wx_index"))
     account = Account.query.get(account_id)
     operate = request.args.to_dict().get("operate", "")
     if operate in ["0", "1", "2", "3", "4"]:
         account.status = int(operate)
         db.session.add(account)
         db.session.commit()
-    return redirect(url_for("app.wx_index"))
+    return redirect(url_for("wx_app.wx_index"))
 
 
 @wx_app.route("/wx_article/", methods=["GET"])
