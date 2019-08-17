@@ -5,10 +5,10 @@
 import time
 
 from api import get_history_api
-from crawlerpage import models
-from crawlerpage import db
+from webapp import models
+from webapp import db
 from exceptions import KeyExpireError
-from functions import get_pass_key_and_uin
+from tools import get_pass_key_and_uin
 from settings import SLEEP_TIME
 
 
@@ -114,7 +114,7 @@ class HistoryMonitor:
                 if ending:
                     break
             except KeyExpireError:
-                self.key_dict[biz] = get_pass_key_and_uin(account_url)
+                self.key_dict[biz] = get_pass_key_and_uin(account_url, account.account_biz)
                 # time.sleep(0.1)
                 print(f"key 过期 offset: {offset}")
             # print("将在%s秒后开始下一次爬取" % abs(time.time() - s_time - SLEEP_TIME))

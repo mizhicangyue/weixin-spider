@@ -40,10 +40,7 @@ class WeiXinProxy:
                 print("抓到了：", hash_key, biz, uin, key)
 
                 if not self.redis_server.exists(hash_key):
-                    self.redis_server.set(hash_key, json.dumps({
-                        "key": key,
-                        "uin": uin
-                    }, ensure_ascii=False))
+                    self.redis_server.set(hash_key, "|".join([key, uin]))
 
 
 addons = [

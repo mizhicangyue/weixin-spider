@@ -7,8 +7,8 @@ import threading
 import redis
 import hashlib
 from api import get_history_api
-from crawlerpage import models
-from crawlerpage import db
+from webapp import models
+from webapp import db
 from exceptions import NoneKeyUinError, KeyExpireError
 from settings import SLEEP_TIME, WX_REDIS_CONFIG
 
