@@ -7,7 +7,7 @@ import hashlib
 import redis
 from webapp import models, db
 from tools import get_pass_key_and_uin
-from settings import WX_REDIS_CONFIG, WX_ACCOUNT_BIZ_SET
+from settings import WX_REDIS_CONFIG
 
 
 def uin_key_monitor():

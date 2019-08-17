@@ -3,16 +3,22 @@
 # @Time   : 2019/8/7 15:26
 # @File   : wx_monitor.py
 import json
+import re
 import time
 import threading
 import redis
 import hashlib
-from api import get_history_api
+
+from pyquery import PyQuery
+
+from api import get_history_api, get_html_api, get_article_comments_api, split_article_url2mis, \
+    get_article_read_like_api
 from tools.handle import WeChatWnd
 from webapp import models
 from webapp import db
-from exceptions import NoneKeyUinError, KeyExpireError
-from settings import SLEEP_TIME, WX_REDIS_CONFIG, WX_CHAT_WND_NAME
+from exceptions import NoneKeyUinError, KeyExpireError, ArticleHasBeenDeleteError, IPError
+from settings import SLEEP_TIME, WX_REDIS_CONFIG, WX_CHAT_WND_NAME, WX_UPDATE_TIME, WX_NOT_UPDATE_TIME, UPDATE_DELAY, \
+    UPDATE_STOP
 
 
 def delete_key_uin(account_biz):
@@ -31,8 +37,25 @@ def get_key_uin(account_biz):
     key_uin = _get_key_uin(account_biz)
     if not key_uin:
         raise NoneKeyUinError("NoneKeyUinError")
-    print(key_uin)
-    return json.loads(key_uin, encoding="utf-8")
+    print("get_key_uin: ", key_uin)
+    key_uin_dict = json.loads(key_uin, encoding="utf-8")
+    if not key_uin_dict.get("key", None) or not key_uin_dict.get("uin", None):
+        raise NoneKeyUinError("NoneKeyUinError")
+    return key_uin_dict
+
+
+def check_key_uin(account_biz):
+    try:
+        key_uin_dict = get_key_uin(account_biz)
+        get_history_api(**{
+            "key": key_uin_dict.get("key", ""),
+            "uin": key_uin_dict.get("uin", ""),
+            "biz": account_biz,
+            "offset": 0,
+        })
+    except KeyExpireError:
+        delete_key_uin(account_biz)
+        raise NoneKeyUinError(f"key: 已过期")
 
 
 def get_pass_key_and_uin(article_url: str, account_biz: str):
@@ -62,6 +85,16 @@ class _MonitorThread(threading.Thread):
             setattr(obj, k, v)
         db.session.add(obj)
         db.session.commit()
+
+    @staticmethod
+    def articles(**filter_by):
+        article_list = models.Article.query.filter_by(
+            **filter_by
+        ).order_by(
+            models.Article.article_publish_time.desc()
+        ).all()
+        db.session.commit()
+        return article_list
 
     @staticmethod
     def accounts(**filter_by):
@@ -207,18 +240,177 @@ class History(_MonitorThread):
 
 
 class Article(_MonitorThread):
+    @staticmethod
+    def get_comment_id_from_html(res_html):
+        return re.search(r"comment_id = .*?\"([\d]+)\"", res_html).group(1)
+
+    @staticmethod
+    def get_content_from_html(res_html):
+        # return re.search(r"(.*)", res_html).group(1)
+        # print(PyQuery(res_html)("#js_content").html())
+        # js_content = PyQuery(res_html)("#js_content").html().replace("\n", "").strip()
+        # js_content = re.sub(r'data-src', "src", js_content)
+        return str(PyQuery(res_html)("#js_content")).replace("\n", "").strip()
+
+    def article_run(self, article_id):
+        article = models.Article.query.get(article_id)
+        article_url = article.article_content_url
+        account_biz = models.Account.query.get(article.account_id).account_biz
+        key_uin_dict = get_key_uin(account_biz)
+        key = key_uin_dict.get("key", "")
+        uin = key_uin_dict.get("uin", "")
+        if key and uin:
+            article_url = article_url + '&key=%s&ascene=1&uin=%s' % (key, uin)
+        try:
+            article_html = get_html_api(article_url)
+            comment_id = self.get_comment_id_from_html(article_html)
+            article.article_html = self.get_content_from_html(article_html)
+            article.article_comment_id = comment_id
+            article.article_done = True
+        except ArticleHasBeenDeleteError:
+            article.article_fail = True
+            article.article_done = True
+        except IPError:
+            if key and uin:
+                delete_key_uin(account_biz)
+        finally:
+            db.session.add(article)
+            db.session.commit()
+
     def start_run(self):
-        time.sleep(SLEEP_TIME)
+        s_time = time.time()
+        for article in self.articles(article_done=False):
+            print("文章开始同步；", article)
+            article_id = article.id
+            try:
+                self.article_run(article_id)
+            except NoneKeyUinError:
+                pass
+            finally:
+                time.sleep(UPDATE_DELAY)
+        while time.time() - s_time < SLEEP_TIME:
+            time.sleep(1)
 
 
 class Comment(_MonitorThread):
     def start_run(self):
-        time.sleep(SLEEP_TIME)
+        s_time = time.time()
+        article_list = models.Article.query.filter_by(
+            article_done=True,
+        ).filter(
+            models.Article.article_comment_id != 0,
+            models.Article.comment_update < str(int(time.time()) - WX_UPDATE_TIME),
+            models.Article.article_publish_time > str(int(models.Article.comment_update) - WX_NOT_UPDATE_TIME),
+        ).all()
+        db.session.commit()
+        for article in article_list:
+            print("文章评论开始同步；", article)
+            try:
+                self.article_run(article.id)
+                print("文章评论已同步完成；", article)
+            except NoneKeyUinError:
+                pass
+            finally:
+                time.sleep(UPDATE_DELAY)
+        while time.time() - s_time < SLEEP_TIME:
+            time.sleep(1)
+
+    @staticmethod
+    def save_comment(article_id, comment_dict):
+        for comment_item in comment_dict['comments']:
+            if models.Comment.query.filter_by(content_id=str(comment_item["content_id"])).count() == 0:
+                comment = models.Comment(
+                    user_name=comment_item["user_name"],
+                    user_logo=comment_item["user_logo"],
+                    content=comment_item["content"],
+                    datetime=str(comment_item["datetime"]),
+                    content_id=str(comment_item["content_id"]),
+                    like_count=int(comment_item["like_count"]),
+                    article_id=article_id
+                )
+                db.session.add(comment)
+                db.session.commit()
+            comment = models.Comment.query.filter_by(content_id=str(comment_item["content_id"])).first()
+            reply_list = comment_item["reply_list"]
+            for reply_item in reply_list:
+                reply = models.CommentReply(
+                    **reply_item,
+                    comment_id=comment.id
+                )
+                db.session.add(reply)
+                db.session.commit()
+
+    def article_run(self, article_id):
+        article = models.Article.query.get(article_id)
+        comment_id = article.article_comment_id
+        account_biz = models.Account.query.get(article.account_id).account_biz
+        key_uin_dict = get_key_uin(account_biz)
+        key = key_uin_dict.get("key", "")
+        uin = key_uin_dict.get("uin", "")
+        try:
+            comment_dict = get_article_comments_api(
+                biz=account_biz,
+                comment_id=comment_id,
+                key=key,
+                uin=uin,
+            )['results']
+            self.save_comment(article_id, comment_dict)
+            comment_count = comment_dict['comment_count']
+            article.comment_count = comment_count
+            article.comment_update = str(int(time.time()))
+            db.session.add(article)
+            db.session.commit()
+        except KeyExpireError:
+            time.sleep(UPDATE_STOP)
+            check_key_uin(account_biz)
 
 
 class ReadLike(_MonitorThread):
     def start_run(self):
-        time.sleep(SLEEP_TIME)
+        article_list = models.Article.query.filter_by(
+            article_done=True,
+        ).filter(
+            models.Article.article_fail == False,
+            models.Article.read_like_update < str(int(time.time()) - WX_UPDATE_TIME),
+            models.Article.article_publish_time > str(int(models.Article.read_like_update) - WX_NOT_UPDATE_TIME),
+        ).all()
+        db.session.commit()
+        for article in article_list:
+            print("文章评论开始同步；", article)
+            try:
+                self.article_run(article.id)
+                print("文章评论已同步完成；", article)
+            except NoneKeyUinError:
+                pass
+            finally:
+                time.sleep(UPDATE_DELAY)
+        time.sleep(UPDATE_STOP)
+
+    def article_run(self, article_id):
+        article = models.Article.query.get(article_id)
+        article_url = article.article_content_url
+        comment_id = article.article_comment_id
+        account_biz = models.Account.query.get(article.account_id).account_biz
+        key_uin_dict = get_key_uin(account_biz)
+        key = key_uin_dict.get("key", "")
+        uin = key_uin_dict.get("uin", "")
+        try:
+            print(split_article_url2mis(article_url), article_url)
+            read_like = get_article_read_like_api(
+                biz=account_biz,
+                key=key,
+                uin=uin,
+                comment_id=comment_id,
+                **split_article_url2mis(article_url))
+            read_like = read_like["results"]
+            article.read_count = read_like['read_count']
+            article.like_count = read_like['like_count']
+            article.read_like_update = str(int(time.time()))
+            db.session.add(article)
+            db.session.commit()
+        except KeyExpireError:
+            time.sleep(UPDATE_STOP)
+            check_key_uin(account_biz)
 
 
 class KeyUin(_MonitorThread):
