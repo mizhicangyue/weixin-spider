@@ -97,3 +97,4 @@
 
 想要了解更多对于pywin32操作微信PC版的功能，可访问： https://github.com/xzkzdx/WeChatPC
 
+部分功能将在后续完善
