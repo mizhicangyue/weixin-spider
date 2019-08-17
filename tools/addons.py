@@ -38,9 +38,11 @@ class WeiXinProxy:
                 uin = self.uin_md5(re.search(r"uin=([^&]+)&?", url_path).group(1))
                 hash_key = hashlib.md5(biz.encode("utf-8")).hexdigest()
                 print("抓到了：", hash_key, biz, uin, key)
-
                 if not self.redis_server.exists(hash_key):
-                    self.redis_server.set(hash_key, "|".join([key, uin]))
+                    self.redis_server.set(hash_key, json.dumps({
+                        "uin": uin,
+                        "key": key
+                    }, ensure_ascii=False))
 
 
 addons = [
