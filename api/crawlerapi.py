@@ -12,7 +12,6 @@ import html
 import time
 # from urllib.parse import unquote, quote
 # import base64
-from tools import open_system_proxy, close_system_proxy
 from exceptions import KeyExpireError, NoneValueError, IPError, ArticleHasBeenDeleteError
 from settings import USER_AGENT, USER_AGENT_WECHAT
 

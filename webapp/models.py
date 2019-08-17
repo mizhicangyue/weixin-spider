@@ -70,7 +70,7 @@ class Article(db.Model):
     account_id = db.Column(db.Integer, db.ForeignKey("wx_account.id"))  # 公众号唯一id
 
     def __repr__(self):
-        return "<Article: id: %d, title: %r, comment_count: %s, read_count: %s, like_count: %s>" % (
+        return "<Article: id: %s, title: %r, comment_count: %s, read_count: %s, like_count: %s>" % (
             self.id,
             self.article_title,
             self.comment_count,
