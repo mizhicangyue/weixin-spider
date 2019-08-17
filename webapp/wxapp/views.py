@@ -89,8 +89,9 @@ def wx_article_iframe():
 
 @wx_app.route("/wx_images/", methods=["GET"])
 def wx_images():
+    from ssl import _create_unverified_context
     url = request.args.to_dict().get("url", "")
-    img = urlopen(url)
+    img = urlopen(url, context=_create_unverified_context())
     resp = make_response(img.read())
     resp.headers['Content-Type'] = 'image/jpg'
     return resp

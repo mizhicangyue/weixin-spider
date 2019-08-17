@@ -108,7 +108,7 @@ class _MonitorThread(threading.Thread):
 
     @staticmethod
     def check_account_status(_id: int, status: int):
-        print("check_account_status", _id, status)
+        # print("check_account_status", _id, status)
         status_flag = models.Account.query.get(_id).status == status
         db.session.commit()
         return status_flag
@@ -294,15 +294,15 @@ class Article(_MonitorThread):
 
 class Comment(_MonitorThread):
     def start_run(self):
-        s_time = time.time()
         article_list = models.Article.query.filter_by(
             article_done=True,
         ).filter(
             models.Article.article_comment_id != 0,
-            models.Article.comment_update < str(int(time.time()) - WX_UPDATE_TIME),
-            models.Article.article_publish_time > str(int(models.Article.comment_update) - WX_NOT_UPDATE_TIME),
+            models.Article.comment_update < int(time.time()) - WX_UPDATE_TIME,
+            models.Article.article_publish_time > models.Article.comment_update - WX_NOT_UPDATE_TIME,
         ).all()
         db.session.commit()
+        print("Comment len(article_list): ", len(article_list))
         for article in article_list:
             print("文章评论开始同步；", article)
             try:
@@ -312,8 +312,7 @@ class Comment(_MonitorThread):
                 pass
             finally:
                 time.sleep(UPDATE_DELAY)
-        while time.time() - s_time < SLEEP_TIME:
-            time.sleep(1)
+        time.sleep(UPDATE_STOP)
 
     @staticmethod
     def save_comment(article_id, comment_dict):
@@ -371,15 +370,16 @@ class ReadLike(_MonitorThread):
             article_done=True,
         ).filter(
             models.Article.article_fail == False,
-            models.Article.read_like_update < str(int(time.time()) - WX_UPDATE_TIME),
-            models.Article.article_publish_time > str(int(models.Article.read_like_update) - WX_NOT_UPDATE_TIME),
+            models.Article.read_like_update < int(time.time()) - WX_UPDATE_TIME,
+            models.Article.article_publish_time > models.Article.read_like_update - WX_NOT_UPDATE_TIME,
         ).all()
         db.session.commit()
+        print("ReadLike len(article_list): ", len(article_list))
         for article in article_list:
-            print("文章评论开始同步；", article)
+            print("文章阅读数据开始同步；", article)
             try:
                 self.article_run(article.id)
-                print("文章评论已同步完成；", article)
+                print("文章阅读数据已同步完成；", article)
             except NoneKeyUinError:
                 pass
             finally:
@@ -427,8 +427,8 @@ if __name__ == '__main__':
     # thread_list = []
     # for thread_name in ["History", "Article", "Comment", "ReadLike"]:
     #     thread_list.append(globals()[thread_name]())
-    # class_names = ["History", "Article", "Comment", "ReadLike", "KeyUin"]
-    class_names = ["History", "KeyUin"]
+    class_names = ["History", "Article", "Comment", "ReadLike", "KeyUin"]
+    # class_names = ["Comment"]
     thread_list = [globals()[thread_name]() for thread_name in class_names]
 
     while 1:

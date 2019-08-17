@@ -19,7 +19,7 @@ class CheckHandle:
             if myself.handle == 0:
                 raise HandleDoseNotExistError(f"{myself.title}窗口不存在")
             # win32gui.ShowWindow(myself.handle, win32con.SW_SHOWDEFAULT)
-            win32gui.SetForegroundWindow(myself.handle)
+            # win32gui.SetForegroundWindow(myself.handle)
             # win32gui.ShowWindow(myself.handle, win32con.SW_HIDE)
             myself.rect = win32gui.GetWindowRect(myself.handle)
             return self_func(myself, *args, **kwargs)

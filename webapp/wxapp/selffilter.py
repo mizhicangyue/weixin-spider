@@ -24,14 +24,13 @@ def timestamp2time(timestamp):
 
 
 def data_src(html):
-    content_html = """<div id="js_content">%s</div>""" % html
-    dom = PyQuery(content_html)
+    dom = PyQuery(html)
     for img in dom("img"):
         url = img.get('data-src', "")
         if not url:
             url = img.get('src', "")
         if url:
-            img.set("src", "/wx/wx_images/?&url=" + url)
+            img.set("src", "/wx_images/?&url=" + url)
     # content_html = re.sub(r'data-src="https?://mmbiz', 'src="https://mmbiz', content_html)
     # return re.sub(r"src=\"", "src=\"/wx/wx_images/?&url=", content_html)
     return dom
